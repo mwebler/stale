@@ -1,6 +1,13 @@
-const getConfig = require('probot-config')
 const createScheduler = require('probot-scheduler')
+const getConfig = require('probot-config')
 const Stale = require('./lib/stale')
+
+const IssueReporter = require('probot-report-error')
+const configIssueReporter = new IssueReporter({
+  title: 'Error while loading configuration file for Stale app',
+  body: `An error occurred while trying to check this repository for stale issues`,
+  footer: 'Check the sintax of \`.github/stale.yml\` and make sure it\'s valid. For more information check [probot/stale](https://probot.github.io/apps/stale/)',
+});
 
 module.exports = async robot => {
   // Visit all repositories to mark and sweep stale issues
@@ -49,7 +56,13 @@ module.exports = async robot => {
   }
 
   async function forRepository (context) {
-    let config = await getConfig(context, 'stale.yml')
+    let config;
+    try{
+      config = await getConfig(context, 'stale.yml')
+    } catch(error){
+      await configIssueReporter.createIssue(context.repo({github: context.github}), {error});
+      throw error
+    }
 
     if (!config) {
       scheduler.stop(context.payload.repository)
